@@ -36,6 +36,9 @@ class JSONTypeClass(click.ParamType):
     name = 'JSON'
 
     def convert(self, value, param, ctx):
+        if not isinstance(value, strtype):
+            # Already a correct type
+            return value
         try:
             return json.loads(value)
         except:
@@ -227,7 +230,9 @@ def add_custom_parameters(deploy_mode=False):
     # deploy_mode determines whether deploy-time functions should or should
     # not be evaluated for this command
     def wrapper(cmd):
-        for arg in parameters:
+        # Iterate over parameters in reverse order so cmd.params lists options
+        # in the order they are defined in the FlowSpec subclass
+        for arg in parameters[::-1]:
             kwargs = arg.option_kwargs(deploy_mode)
             cmd.params.insert(0, click.Option(('--' + arg.name,), **kwargs))
         return cmd
@@ -244,17 +249,8 @@ def set_parameters(flow, kwargs):
         seen.add(norm)
 
     flow._success = True
-    # Impose length constraints on parameter names as some backend systems
-    # impose limits on environment variables (which are used to implement
-    # parameters)
-    parameter_list_length = 0
-    num_parameters = 0
     for var, param in flow._get_parameters():
         val = kwargs[param.name.replace('-', '_').lower()]
-        # Account for the parameter values to unicode strings or integer
-        # values. And the name to be a unicode string.
-        parameter_list_length += len((param.name + str(val)).encode("utf-8"))
-        num_parameters += 1
         # Support for delayed evaluation of parameters. This is used for
         # includefile in particular
         if callable(val):

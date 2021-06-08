@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from collections import defaultdict, deque
 import random
 import select
@@ -111,7 +112,8 @@ class BatchJob(object):
         else:
             response = self._client.describe_job_queues(jobQueues=[job_queue])
             if len(response['jobQueues']) == 0:
-                raise BatchJobException('Job queue %s found.' % job_queue)
+                raise BatchJobException(
+                    'AWS Batch Job Queue %s not found.' % job_queue)
             compute_environment = response['jobQueues'][0] \
                                     ['computeEnvironmentOrder'][0] \
                                     ['computeEnvironment']
@@ -380,7 +382,15 @@ class RunningJob(object):
             if code == 429 or code >= 500:
                 raise TriableException(err)
             raise err
-        self._apply(data['jobs'][0])
+        # There have been sporadic reports of empty responses to the
+        # batch.describe_jobs API call, which can potentially happen if the
+        # batch.submit_job API call is not strongly consistent(¯\_(ツ)_/¯).
+        # We add a check here to guard against that. The `update()` call
+        # will ensure that we poll `batch.describe_jobs` until we get a
+        # satisfactory response at least once through out the lifecycle of
+        # the job.
+        if len(data['jobs']) == 1:
+            self._apply(data['jobs'][0])
 
     def update(self):
         self._update()
@@ -561,7 +571,6 @@ class BatchWaiter(object):
         self._waiter.create_waiter_with_client('JobRunning', model, self._client).wait(
             jobs=[job_id]
         )
-
 
 class BatchLogs(object):
     def __init__(self, group, stream, pos=0, sleep_on_no_data=0):
