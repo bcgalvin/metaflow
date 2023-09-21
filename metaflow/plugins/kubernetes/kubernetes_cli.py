@@ -7,7 +7,7 @@ from metaflow import JSONTypeClass, util
 from metaflow._vendor import click
 from metaflow.exception import METAFLOW_EXIT_DISALLOW_RETRY, CommandException
 from metaflow.metadata.util import sync_local_metadata_from_datastore
-from metaflow.metaflow_config import DATASTORE_LOCAL_DIR, KUBERNETES_LABELS
+from metaflow.metaflow_config import DATASTORE_LOCAL_DIR
 from metaflow.mflog import TASK_LOG_SOURCE
 import metaflow.tracing as tracing
 
@@ -107,6 +107,18 @@ def kubernetes():
     type=JSONTypeClass(),
     multiple=False,
 )
+@click.option(
+    "--labels",
+    default=None,
+    type=JSONTypeClass(),
+    multiple=False,
+)
+@click.option(
+    "--annotations",
+    default=None,
+    type=JSONTypeClass(),
+    multiple=False,
+)
 @click.pass_context
 def step(
     ctx,
@@ -132,6 +144,8 @@ def step(
     run_time_limit=None,
     persistent_volume_claims=None,
     tolerations=None,
+    labels=None,
+    annotations=None,
     **kwargs
 ):
     def echo(msg, stream="stderr", job_id=None, **kwargs):
@@ -245,6 +259,8 @@ def step(
                 env=env,
                 persistent_volume_claims=persistent_volume_claims,
                 tolerations=tolerations,
+                labels=labels,
+                annotations=annotations,
             )
     except Exception as e:
         traceback.print_exc(chain=False)
