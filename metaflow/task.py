@@ -20,6 +20,7 @@ from .exception import (
 )
 from .unbounded_foreach import UBF_CONTROL
 from .util import all_equal, get_username, resolve_identity, unicode_type
+from .clone_util import clone_task
 from .metaflow_current import current
 from metaflow.tracing import get_trace_id
 from metaflow.util import namedtuple_with_defaults
@@ -293,48 +294,19 @@ class MetaflowTask(object):
         if wait_only:
             print("Not cloning anything in wait_only mode.")
             return
+        origin_run_id, _, _ = clone_origin_task.split("/")
 
         # If we actually have to do the clone ourselves, proceed...
-        # 1. initialize output datastore
-        output = self.flow_datastore.get_task_datastore(
-            run_id, step_name, task_id, attempt=0, mode="w"
-        )
-
-        output.init_task()
-
-        origin_run_id, origin_step_name, origin_task_id = clone_origin_task.split("/")
-        # 2. initialize origin datastore
-        origin = self.flow_datastore.get_task_datastore(
-            origin_run_id, origin_step_name, origin_task_id
-        )
-        metadata_tags = ["attempt_id:{0}".format(retry_count)]
-        output.clone(origin)
-        self.metadata.register_metadata(
+        clone_task(
+            self.flow.name,
+            origin_run_id,
             run_id,
             step_name,
             task_id,
-            [
-                MetaDatum(
-                    field="origin-task-id",
-                    value=str(origin_task_id),
-                    type="origin-task-id",
-                    tags=metadata_tags,
-                ),
-                MetaDatum(
-                    field="origin-run-id",
-                    value=str(origin_run_id),
-                    type="origin-run-id",
-                    tags=metadata_tags,
-                ),
-                MetaDatum(
-                    field="attempt",
-                    value=str(retry_count),
-                    type="attempt",
-                    tags=metadata_tags,
-                ),
-            ],
+            self.flow_datastore,
+            self.metadata,
+            attempt_id=retry_count,
         )
-        output.done()
 
     def _finalize_control_task(self):
         # Update `_transition` which is expected by the NativeRuntime.

@@ -802,7 +802,10 @@ def resume(
     write_run_id(run_id_file, runtime.run_id)
     runtime.print_workflow_info()
     runtime.persist_constants()
-    runtime.execute()
+    if clone_only:
+        runtime.clone_original_run()
+    else:
+        runtime.execute()
 
 
 @tracing.cli_entrypoint("cli/run")

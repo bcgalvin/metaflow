@@ -30,6 +30,7 @@ from .debug import debug
 from .decorators import flow_decorators
 from .mflog import mflog, RUNTIME_LOG_SOURCE
 from .util import to_unicode, compress_list, unicode_type
+from .clone_util import clone_task
 from .unbounded_foreach import (
     CONTROL_TASK_TAG,
     UBF_CONTROL,
@@ -187,7 +188,7 @@ class NativeRuntime(object):
             origin_ds_set=self._origin_ds_set,
             decos=decos,
             logger=self._logger,
-            **kwargs
+            **kwargs,
         )
 
     @property
@@ -234,6 +235,36 @@ class NativeRuntime(object):
                     "Not resume leader under resume execution. Skip clone-only execution.",
                 )
         return False, None
+
+    def clone_original_run(self):
+        (
+            should_skip_clone_only_execution,
+            skip_reason,
+        ) = self._should_skip_clone_only_execution()
+        if should_skip_clone_only_execution:
+            self._logger(skip_reason, system_msg=True)
+            return
+        self._metadata.start_run_heartbeat(self._flow.name, self._run_id)
+        from metaflow import Run
+
+        run = Run(f"{self._flow.name}/{self._clone_run_id}")
+
+        for step in run:
+            for task in step:
+                _, _, step_name, task_id = task.pathspec.split("/")
+                if task.successful:
+                    clone_task(
+                        self._flow.name,
+                        self._clone_run_id,
+                        self._run_id,
+                        step_name,
+                        task_id,
+                        self._flow_datastore,
+                        self._metadata,
+                    )
+
+        self._logger("Cloning original run is done", system_msg=True)
+        self._params_task.mark_resume_done()
 
     def execute(self):
         (
