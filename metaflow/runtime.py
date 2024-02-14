@@ -248,7 +248,7 @@ class NativeRuntime(object):
         from metaflow import Run
 
         run = Run(f"{self._flow.name}/{self._clone_run_id}")
-
+        self._logger("Start cloning original run: %s" % (run), system_msg=True)
         for step in run:
             for task in step:
                 _, _, step_name, task_id = task.pathspec.split("/")
