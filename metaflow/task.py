@@ -20,7 +20,7 @@ from .exception import (
 )
 from .unbounded_foreach import UBF_CONTROL
 from .util import all_equal, get_username, resolve_identity, unicode_type
-from .clone_util import clone_task
+from .clone_util import clone_task_helper
 from .metaflow_current import current
 from metaflow.tracing import get_trace_id
 from metaflow.util import namedtuple_with_defaults
@@ -297,7 +297,7 @@ class MetaflowTask(object):
         origin_run_id, _, _ = clone_origin_task.split("/")
 
         # If we actually have to do the clone ourselves, proceed...
-        clone_task(
+        clone_task_helper(
             self.flow.name,
             origin_run_id,
             run_id,

@@ -30,7 +30,7 @@ from .debug import debug
 from .decorators import flow_decorators
 from .mflog import mflog, RUNTIME_LOG_SOURCE
 from .util import to_unicode, compress_list, unicode_type
-from .clone_util import clone_task
+from .clone_util import clone_task_helper
 from .unbounded_foreach import (
     CONTROL_TASK_TAG,
     UBF_CONTROL,
@@ -236,6 +236,21 @@ class NativeRuntime(object):
                 )
         return False, None
 
+    def clone_task(self, step_name, task_id):
+        self._logger(
+            f"Cloning task {self._flow.name}/{self._run_id}/{step_name}/{task_id}",
+            system_msg=True,
+        )
+        clone_task_helper(
+            self._flow.name,
+            self._clone_run_id,
+            self._run_id,
+            step_name,
+            task_id,
+            self._flow_datastore,
+            self._metadata,
+        )
+
     def clone_original_run(self):
         (
             should_skip_clone_only_execution,
@@ -249,19 +264,18 @@ class NativeRuntime(object):
 
         run = Run(f"{self._flow.name}/{self._clone_run_id}")
         self._logger("Start cloning original run: %s" % (run), system_msg=True)
+        inputs = []
         for step in run:
             for task in step:
                 _, _, step_name, task_id = task.pathspec.split("/")
                 if task.successful:
-                    clone_task(
-                        self._flow.name,
-                        self._clone_run_id,
-                        self._run_id,
-                        step_name,
-                        task_id,
-                        self._flow_datastore,
-                        self._metadata,
-                    )
+                    self.clone_task(step_name, task_id)
+                    # inputs.append((step_name, task_id))
+        self._logger("Finish up non-s3 work: %s" % (run), system_msg=True)
+        # from concurrent import futures
+        # with futures.ThreadPoolExecutor(max_workers=128) as executor:
+        #     all_tasks = [executor.submit(self.clone_task, step_name, task_id) for (step_name, task_id) in inputs]
+        #     _, _ = futures.wait(all_tasks)
 
         self._logger("Cloning original run is done", system_msg=True)
         self._params_task.mark_resume_done()
@@ -1540,3 +1554,19 @@ class Worker(object):
 
     def __str__(self):
         return "Worker[%d]: %s" % (self._proc.pid, self.task.path)
+
+
+class Test:
+    def helper(self, a, b):
+        print(f"{a}+{b}: ", a + b)
+        return a + b
+
+    def process(self):
+        inputs = []
+        for i in range(3):
+            inputs.append((i, i * 2))
+        from concurrent import futures
+
+        with futures.ThreadPoolExecutor(max_workers=64) as executor:
+            all_tasks = [executor.submit(self.helper, x, y) for (x, y) in inputs]
+            res, _ = futures.wait(all_tasks)

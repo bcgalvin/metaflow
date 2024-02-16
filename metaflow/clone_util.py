@@ -2,7 +2,7 @@ import time
 from .metadata import MetaDatum
 
 
-def clone_task(
+def clone_task_helper(
     flow_name,
     clone_run_id,
     run_id,
@@ -20,7 +20,11 @@ def clone_task(
     output = flow_datastore.get_task_datastore(
         run_id, step_name, task_id, attempt=attempt_id, mode="w"
     )
-    output.init_task()
+    # output.init_task()
+    end_time = time.time()
+    print(
+        f"Cloning task {flow_name}/{run_id}/{step_name}/{task_id}, step 1, finished in {end_time - start_time:.2f} secs"
+    )
 
     origin_run_id, origin_step_name, origin_task_id = clone_run_id, step_name, task_id
     # 2. initialize origin datastore
@@ -29,6 +33,10 @@ def clone_task(
     )
     metadata_tags = ["attempt_id:{0}".format(attempt_id)]
     output.clone(origin)
+    end_time = time.time()
+    print(
+        f"Cloning task {flow_name}/{run_id}/{step_name}/{task_id}, step 2.1, finished in {end_time - start_time:.2f} secs"
+    )
     _ = metadata_service.register_task_id(
         run_id,
         step_name,
@@ -60,8 +68,11 @@ def clone_task(
             ),
         ],
     )
-    output.done()
-
+    end_time = time.time()
+    print(
+        f"Cloning task {flow_name}/{run_id}/{step_name}/{task_id}, step 2.2, finished in {end_time - start_time:.2f} secs"
+    )
+    # output.done()
     end_time = time.time()
     print(
         f"Cloning task {flow_name}/{run_id}/{step_name}/{task_id} finished in {end_time - start_time:.2f} secs"
