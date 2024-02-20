@@ -727,11 +727,11 @@ class MetadataProvider(object):
 
         return post_filter
 
-    def __init__(self, environment, flow, event_logger, monitor):
+    def __init__(self, environment, flow_name, event_logger, monitor):
         self._task_id_seq = -1
         self.sticky_tags = set()
         self.sticky_sys_tags = set()
-        self._flow_name = flow.name
+        self._flow_name = flow_name
         self._event_logger = event_logger
         self._monitor = monitor
         self._environment = environment

@@ -269,13 +269,17 @@ class NativeRuntime(object):
             for task in step:
                 _, _, step_name, task_id = task.pathspec.split("/")
                 if task.successful:
-                    self.clone_task(step_name, task_id)
-                    # inputs.append((step_name, task_id))
+                    # self.clone_task(step_name, task_id)
+                    inputs.append((step_name, task_id))
         self._logger("Finish up non-s3 work: %s" % (run), system_msg=True)
-        # from concurrent import futures
-        # with futures.ThreadPoolExecutor(max_workers=128) as executor:
-        #     all_tasks = [executor.submit(self.clone_task, step_name, task_id) for (step_name, task_id) in inputs]
-        #     _, _ = futures.wait(all_tasks)
+        from concurrent import futures
+
+        with futures.ThreadPoolExecutor(max_workers=128) as executor:
+            all_tasks = [
+                executor.submit(self.clone_task, step_name, task_id)
+                for (step_name, task_id) in inputs
+            ]
+            _, _ = futures.wait(all_tasks)
 
         self._logger("Cloning original run is done", system_msg=True)
         self._params_task.mark_resume_done()
@@ -1351,7 +1355,12 @@ class CLIArgs(object):
 class Worker(object):
     def __init__(self, task, max_logs_size):
         self.task = task
-        self._proc = self._launch()
+        if self.task.is_cloned and self.task.clone_origin:
+            print("launch clone?")
+            self._proc = self._launch_clone()
+        else:
+            print("launch original.")
+            self._proc = self._launch()
 
         if task.retries > task.user_code_retries:
             self.task.log(
@@ -1380,6 +1389,24 @@ class Worker(object):
         self.cleaned = False  # A cleaned task is one that is shutting down and has been
         # noticed by the runtime and queried for its state (whether or
         # not it is properly shut down)
+
+    def _launch_clone(self):
+        env = dict(os.environ)
+        env["PYTHONUNBUFFERED"] = "x"
+        cmd = [
+            "python",
+            "-c",
+            f"from metaflow.util import print_hello; print_hello('{self.task.flow_name}', '{self.task.clone_run_id}', '{self.task.run_id}', '{self.task.step}', '{self.task.task_id}', '{self.task._flow_datastore.default_storage_impl.datastore_root}')",
+        ]
+        print("running cmd!", " ".join(cmd))
+        return subprocess.Popen(
+            cmd,
+            env=env,
+            bufsize=1,
+            stdin=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+        )
 
     def _launch(self):
         args = CLIArgs(self.task)

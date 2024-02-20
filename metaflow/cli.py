@@ -802,10 +802,11 @@ def resume(
     write_run_id(run_id_file, runtime.run_id)
     runtime.print_workflow_info()
     runtime.persist_constants()
-    if clone_only:
-        runtime.clone_original_run()
-    else:
-        runtime.execute()
+    # if clone_only:
+    #     runtime.clone_original_run()
+    # else:
+    #     runtime.execute()
+    runtime.execute()
 
 
 @tracing.cli_entrypoint("cli/run")
@@ -1033,7 +1034,7 @@ def start(
     ctx.obj.monitor.start()
 
     ctx.obj.metadata = [m for m in METADATA_PROVIDERS if m.TYPE == metadata][0](
-        ctx.obj.environment, ctx.obj.flow, ctx.obj.event_logger, ctx.obj.monitor
+        ctx.obj.environment, ctx.obj.flow.name, ctx.obj.event_logger, ctx.obj.monitor
     )
 
     ctx.obj.datastore_impl = [d for d in DATASTORES if d.TYPE == datastore][0]
