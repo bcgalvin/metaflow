@@ -10,8 +10,10 @@ def clone_task_helper(
     task_id,
     flow_datastore,
     metadata_service,
+    origin_ds_set=None,
     attempt_id=0,
 ):
+    data = []
     print(
         f"Cloning task from {flow_name}/{clone_run_id}/{step_name}/{task_id} to {flow_name}/{run_id}/{step_name}/{task_id}"
     )
@@ -21,6 +23,7 @@ def clone_task_helper(
         run_id, step_name, task_id, attempt=attempt_id, mode="w"
     )
     output.init_task()
+    # data.extend(output.init_task_iter())
     end_time = time.time()
     print(
         f"Cloning task {flow_name}/{run_id}/{step_name}/{task_id}, step 1, finished in {end_time - start_time:.2f} secs"
@@ -28,15 +31,21 @@ def clone_task_helper(
 
     origin_run_id, origin_step_name, origin_task_id = clone_run_id, step_name, task_id
     # 2. initialize origin datastore
-    origin = flow_datastore.get_task_datastore(
-        origin_run_id, origin_step_name, origin_task_id
-    )
+    origin = None
+    if origin_ds_set:
+        origin = origin_ds_set.get_with_pathspec(
+            f"{origin_run_id}/{origin_step_name}/{origin_task_id}"
+        )
+    else:
+        origin = flow_datastore.get_task_datastore(
+            origin_run_id, origin_step_name, origin_task_id
+        )
     metadata_tags = ["attempt_id:{0}".format(attempt_id)]
     output.clone(origin)
     end_time = time.time()
-    print(
-        f"Cloning task {flow_name}/{run_id}/{step_name}/{task_id}, step 2.1, finished in {end_time - start_time:.2f} secs"
-    )
+    # print(
+    #     f"Cloning task {flow_name}/{run_id}/{step_name}/{task_id}, step 2.1, finished in {end_time - start_time:.2f} secs"
+    # )
     _ = metadata_service.register_task_id(
         run_id,
         step_name,
@@ -69,65 +78,14 @@ def clone_task_helper(
         ],
     )
     end_time = time.time()
-    print(
-        f"Cloning task {flow_name}/{run_id}/{step_name}/{task_id}, step 2.2, finished in {end_time - start_time:.2f} secs"
-    )
+    # print(
+    #     f"Cloning task {flow_name}/{run_id}/{step_name}/{task_id}, step 2.2, finished in {end_time - start_time:.2f} secs"
+    # )
+    # output.done(write_to_storage=False)
     output.done()
+    # data.extend(output.done_iter())
     end_time = time.time()
     print(
         f"Cloning task {flow_name}/{run_id}/{step_name}/{task_id} finished in {end_time - start_time:.2f} secs"
     )
-
-
-def print_hello(flow_name, clone_run_id, run_id, step_name, task_id, datastore_root):
-
-    import time
-
-    print("Hello from clone_util")
-    start_time = time.time()
-    from .metaflow_config import (
-        DEFAULT_DATASTORE,
-        DEFAULT_ENVIRONMENT,
-        DEFAULT_METADATA,
-    )
-    from .plugins import (
-        DATASTORES,
-        ENVIRONMENTS,
-        METADATA_PROVIDERS,
-    )
-    from .datastore import FlowDataStore
-    from .metaflow_environment import MetaflowEnvironment
-
-    environment = [
-        e for e in ENVIRONMENTS + [MetaflowEnvironment] if e.TYPE == DEFAULT_ENVIRONMENT
-    ][0](None)
-    print(f"Create environment finished at {time.time() - start_time:.2f} secs")
-
-    metadata_service = [m for m in METADATA_PROVIDERS if m.TYPE == DEFAULT_METADATA][0](
-        environment, flow_name, None, None
-    )
-    print(f"Create metadata finished at {time.time() - start_time:.2f} secs")
-
-    datastore_impl = [d for d in DATASTORES if d.TYPE == DEFAULT_DATASTORE][0]
-    datastore_impl.datastore_root = datastore_root
-
-    FlowDataStore.default_storage_impl = datastore_impl
-    flow_datastore = FlowDataStore(
-        flow_name,
-        environment,
-        metadata_service,
-        None,
-        None,
-    )
-    print(f"Create FlowDataStore finished at {time.time() - start_time:.2f} secs")
-
-    clone_task_helper(
-        flow_name,
-        clone_run_id,
-        run_id,
-        step_name,
-        task_id,
-        flow_datastore,
-        metadata_service,
-    )
-    print(f"print helllo finished at {time.time() - start_time:.2f} secs")
+    return data

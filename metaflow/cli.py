@@ -745,6 +745,9 @@ def resume(
     run_id_file=None,
     resume_identifier=None,
 ):
+    import time
+
+    start_time = time.time()
     before_run(obj, tags, decospecs + obj.environment.decospecs())
 
     if origin_run_id is None:
@@ -802,11 +805,11 @@ def resume(
     write_run_id(run_id_file, runtime.run_id)
     runtime.print_workflow_info()
     runtime.persist_constants()
-    # if clone_only:
-    #     runtime.clone_original_run()
-    # else:
-    #     runtime.execute()
-    runtime.execute()
+    if clone_only:
+        runtime.clone_original_run()
+    else:
+        runtime.execute()
+    print(f"Resume finished in {time.time() - start_time:.2f} secs")
 
 
 @tracing.cli_entrypoint("cli/run")
@@ -834,7 +837,7 @@ def run(
     decospecs=None,
     run_id_file=None,
     user_namespace=None,
-    **kwargs
+    **kwargs,
 ):
     if user_namespace is not None:
         namespace(user_namespace or None)
@@ -989,7 +992,7 @@ def start(
     pylint=None,
     event_logger=None,
     monitor=None,
-    **deco_options
+    **deco_options,
 ):
     global echo
     if quiet:

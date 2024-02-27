@@ -241,7 +241,7 @@ class NativeRuntime(object):
             f"Cloning task {self._flow.name}/{self._run_id}/{step_name}/{task_id}",
             system_msg=True,
         )
-        clone_task_helper(
+        return clone_task_helper(
             self._flow.name,
             self._clone_run_id,
             self._run_id,
@@ -249,6 +249,7 @@ class NativeRuntime(object):
             task_id,
             self._flow_datastore,
             self._metadata,
+            origin_ds_set=self._origin_ds_set,
         )
 
     def clone_original_run(self):
@@ -271,16 +272,34 @@ class NativeRuntime(object):
                 if task.successful:
                     # self.clone_task(step_name, task_id)
                     inputs.append((step_name, task_id))
+
+        inputs2 = []
+        if self._origin_ds_set:
+            for k, v in self._origin_ds_set.pathspec_cache.items():
+                _, step_name, task_id = k.split("/")
+                if v["_task_ok"] and step_name != "_parameters":
+                    inputs2.append((step_name, task_id))
+            print("inputs2: ", inputs2)
+
         self._logger("Finish up non-s3 work: %s" % (run), system_msg=True)
         from concurrent import futures
+        import time
 
-        with futures.ThreadPoolExecutor(max_workers=128) as executor:
+        with futures.ThreadPoolExecutor(max_workers=64) as executor:
             all_tasks = [
                 executor.submit(self.clone_task, step_name, task_id)
                 for (step_name, task_id) in inputs
             ]
-            _, _ = futures.wait(all_tasks)
+            res, _ = futures.wait(all_tasks)
+            results = []
+            for future in res:
+                results.extend(future.result())
+            # print("final results: ", results)
+            # print("copying files to s3 started")
 
+            # start_time = time.time()
+            # self._flow_datastore._storage_impl.save_bytes(results, overwrite=True, len_hint=50)
+            # print(f"copying files takes {time.time() - start_time:.2f} secs")
         self._logger("Cloning original run is done", system_msg=True)
         self._params_task.mark_resume_done()
 
@@ -1597,3 +1616,5 @@ class Test:
         with futures.ThreadPoolExecutor(max_workers=64) as executor:
             all_tasks = [executor.submit(self.helper, x, y) for (x, y) in inputs]
             res, _ = futures.wait(all_tasks)
+            results = [future.result() for future in res]
+            print(results)
