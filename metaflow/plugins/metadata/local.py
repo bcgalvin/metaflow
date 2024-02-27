@@ -17,9 +17,9 @@ from metaflow.tagging_util import MAX_USER_TAG_SET_SIZE, validate_tags
 class LocalMetadataProvider(MetadataProvider):
     TYPE = "local"
 
-    def __init__(self, environment, flow_name, event_logger, monitor):
+    def __init__(self, environment, flow, event_logger, monitor):
         super(LocalMetadataProvider, self).__init__(
-            environment, flow_name, event_logger, monitor
+            environment, flow, event_logger, monitor
         )
 
     @classmethod

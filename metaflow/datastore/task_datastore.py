@@ -231,11 +231,6 @@ class TaskDataStore(object):
         """
         self.save_metadata({self.METADATA_ATTEMPT_SUFFIX: {"time": time.time()}})
 
-    def init_task_iter(self):
-        return self.get_save_file_iter(
-            {self.METADATA_ATTEMPT_SUFFIX: {"time": time.time()}}
-        )
-
     @only_if_not_done
     @require_mode("w")
     def save_artifacts(self, artifacts_iter, force_v4=False, len_hint=0):
@@ -588,8 +583,15 @@ class TaskDataStore(object):
         # Slow path since this has to get the object from the datastore
         return self.get(name) is None
 
-    def done_iter(self):
-        return self.get_save_file_iter(
+    @only_if_not_done
+    @require_mode("w")
+    def done(self):
+        """
+        Mark this task-datastore as 'done' for the current attempt
+
+        Will throw an exception if mode != 'w'
+        """
+        self.save_metadata(
             {
                 self.METADATA_DATA_SUFFIX: {
                     "datastore": self.TYPE,
@@ -602,29 +604,6 @@ class TaskDataStore(object):
                 self.METADATA_DONE_SUFFIX: "",
             }
         )
-
-    @only_if_not_done
-    @require_mode("w")
-    def done(self, write_to_storage=True):
-        """
-        Mark this task-datastore as 'done' for the current attempt
-
-        Will throw an exception if mode != 'w'
-        """
-        if write_to_storage:
-            self.save_metadata(
-                {
-                    self.METADATA_DATA_SUFFIX: {
-                        "datastore": self.TYPE,
-                        "version": "1.0",
-                        "attempt": self._attempt,
-                        "python_version": sys.version,
-                        "objects": self._objects,
-                        "info": self._info,
-                    },
-                    self.METADATA_DONE_SUFFIX: "",
-                }
-            )
 
         if self._metadata:
             self._metadata.register_metadata(
@@ -912,29 +891,6 @@ class TaskDataStore(object):
                     )
 
         self._storage_impl.save_bytes(blob_iter(), overwrite=allow_overwrite)
-
-    def get_save_file_iter(self, contents, add_attempt=True):
-        def convert(contents):
-            return {k: json.dumps(v).encode("utf-8") for k, v in contents.items()}
-
-        result = []
-        for name, value in convert(contents).items():
-            if add_attempt:
-                path = self._storage_impl.path_join(
-                    self._path, self._metadata_name_for_attempt(name)
-                )
-            else:
-                path = self._storage_impl.path_join(self._path, name)
-            if isinstance(value, (RawIOBase, BufferedIOBase)) and value.readable():
-                result.append((path, value))
-            elif is_stringish(value):
-                result.append((path, to_fileobj(value)))
-            else:
-                raise DataException(
-                    "Metadata1 '%s' for task '%s' has an invalid type: %s"
-                    % (name, self._path, type(value))
-                )
-        return result
 
     def _load_file(self, names, add_attempt=True):
         """

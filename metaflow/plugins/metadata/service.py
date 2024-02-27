@@ -42,9 +42,9 @@ class ServiceMetadataProvider(MetadataProvider):
     _supports_attempt_gets = None
     _supports_tag_mutation = None
 
-    def __init__(self, environment, flow_name, event_logger, monitor):
+    def __init__(self, environment, flow, event_logger, monitor):
         super(ServiceMetadataProvider, self).__init__(
-            environment, flow_name, event_logger, monitor
+            environment, flow, event_logger, monitor
         )
         self.url_task_template = os.path.join(
             SERVICE_URL,

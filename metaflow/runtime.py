@@ -13,6 +13,7 @@ import subprocess
 from datetime import datetime
 from io import BytesIO
 from functools import partial
+from concurrent import futures
 
 from metaflow.datastore.exceptions import DataException
 
@@ -241,7 +242,7 @@ class NativeRuntime(object):
             f"Cloning task {self._flow.name}/{self._run_id}/{step_name}/{task_id}",
             system_msg=True,
         )
-        return clone_task_helper(
+        clone_task_helper(
             self._flow.name,
             self._clone_run_id,
             self._run_id,
@@ -261,45 +262,24 @@ class NativeRuntime(object):
             self._logger(skip_reason, system_msg=True)
             return
         self._metadata.start_run_heartbeat(self._flow.name, self._run_id)
-        from metaflow import Run
+        self._logger(
+            f"Start cloning original run: {self._flow.name}/{self._clone_run_id}",
+            system_msg=True,
+        )
 
-        run = Run(f"{self._flow.name}/{self._clone_run_id}")
-        self._logger("Start cloning original run: %s" % (run), system_msg=True)
         inputs = []
-        for step in run:
-            for task in step:
-                _, _, step_name, task_id = task.pathspec.split("/")
-                if task.successful:
-                    # self.clone_task(step_name, task_id)
-                    inputs.append((step_name, task_id))
 
-        inputs2 = []
-        if self._origin_ds_set:
-            for k, v in self._origin_ds_set.pathspec_cache.items():
-                _, step_name, task_id = k.split("/")
-                if v["_task_ok"] and step_name != "_parameters":
-                    inputs2.append((step_name, task_id))
-            print("inputs2: ", inputs2)
+        for task_ds in self._origin_ds_set:
+            _, step_name, task_id = task_ds.pathspec.split("/")
+            if task_ds["_task_ok"] and step_name != "_parameters":
+                inputs.append((step_name, task_id))
 
-        self._logger("Finish up non-s3 work: %s" % (run), system_msg=True)
-        from concurrent import futures
-        import time
-
-        with futures.ThreadPoolExecutor(max_workers=64) as executor:
+        with futures.ThreadPoolExecutor(max_workers=self._max_workers) as executor:
             all_tasks = [
                 executor.submit(self.clone_task, step_name, task_id)
                 for (step_name, task_id) in inputs
             ]
-            res, _ = futures.wait(all_tasks)
-            results = []
-            for future in res:
-                results.extend(future.result())
-            # print("final results: ", results)
-            # print("copying files to s3 started")
-
-            # start_time = time.time()
-            # self._flow_datastore._storage_impl.save_bytes(results, overwrite=True, len_hint=50)
-            # print(f"copying files takes {time.time() - start_time:.2f} secs")
+            _, _ = futures.wait(all_tasks)
         self._logger("Cloning original run is done", system_msg=True)
         self._params_task.mark_resume_done()
 
@@ -1374,12 +1354,7 @@ class CLIArgs(object):
 class Worker(object):
     def __init__(self, task, max_logs_size):
         self.task = task
-        if self.task.is_cloned and self.task.clone_origin:
-            print("launch clone?")
-            self._proc = self._launch_clone()
-        else:
-            print("launch original.")
-            self._proc = self._launch()
+        self._proc = self._launch()
 
         if task.retries > task.user_code_retries:
             self.task.log(
@@ -1408,24 +1383,6 @@ class Worker(object):
         self.cleaned = False  # A cleaned task is one that is shutting down and has been
         # noticed by the runtime and queried for its state (whether or
         # not it is properly shut down)
-
-    def _launch_clone(self):
-        env = dict(os.environ)
-        env["PYTHONUNBUFFERED"] = "x"
-        cmd = [
-            "python",
-            "-c",
-            f"from metaflow.util import print_hello; print_hello('{self.task.flow_name}', '{self.task.clone_run_id}', '{self.task.run_id}', '{self.task.step}', '{self.task.task_id}', '{self.task._flow_datastore.default_storage_impl.datastore_root}')",
-        ]
-        print("running cmd!", " ".join(cmd))
-        return subprocess.Popen(
-            cmd,
-            env=env,
-            bufsize=1,
-            stdin=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-        )
 
     def _launch(self):
         args = CLIArgs(self.task)
@@ -1600,21 +1557,3 @@ class Worker(object):
 
     def __str__(self):
         return "Worker[%d]: %s" % (self._proc.pid, self.task.path)
-
-
-class Test:
-    def helper(self, a, b):
-        print(f"{a}+{b}: ", a + b)
-        return a + b
-
-    def process(self):
-        inputs = []
-        for i in range(3):
-            inputs.append((i, i * 2))
-        from concurrent import futures
-
-        with futures.ThreadPoolExecutor(max_workers=64) as executor:
-            all_tasks = [executor.submit(self.helper, x, y) for (x, y) in inputs]
-            res, _ = futures.wait(all_tasks)
-            results = [future.result() for future in res]
-            print(results)

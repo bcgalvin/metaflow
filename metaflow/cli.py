@@ -745,9 +745,6 @@ def resume(
     run_id_file=None,
     resume_identifier=None,
 ):
-    import time
-
-    start_time = time.time()
     before_run(obj, tags, decospecs + obj.environment.decospecs())
 
     if origin_run_id is None:
@@ -809,7 +806,6 @@ def resume(
         runtime.clone_original_run()
     else:
         runtime.execute()
-    print(f"Resume finished in {time.time() - start_time:.2f} secs")
 
 
 @tracing.cli_entrypoint("cli/run")
@@ -1037,7 +1033,7 @@ def start(
     ctx.obj.monitor.start()
 
     ctx.obj.metadata = [m for m in METADATA_PROVIDERS if m.TYPE == metadata][0](
-        ctx.obj.environment, ctx.obj.flow.name, ctx.obj.event_logger, ctx.obj.monitor
+        ctx.obj.environment, ctx.obj.flow, ctx.obj.event_logger, ctx.obj.monitor
     )
 
     ctx.obj.datastore_impl = [d for d in DATASTORES if d.TYPE == datastore][0]
