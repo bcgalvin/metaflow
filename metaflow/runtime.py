@@ -1396,8 +1396,6 @@ class Worker(object):
             # disabling sidecars for cloned tasks due to perf reasons
             args.top_level_options["event-logger"] = "nullSidecarLogger"
             args.top_level_options["monitor"] = "nullSidecarMonitor"
-            if self.task.should_skip_cloning:
-                args.command_options["clone-wait-only"] = True
         else:
             # decorators may modify the CLIArgs object in-place
             for deco in self.task.decos:
