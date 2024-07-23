@@ -1,0 +1,27 @@
+Package: metaflow
+Type: Package
+Title: R Interface to 'Metaflow'
+Version: 0.0.0.9000
+Authors@R: c(
+    person("Bryan", "Galvin", email = "bcgalvin@gmail.com", role = c("aut", "cre"))
+     )
+Description: Interface to 'Metaflow' <https://metaflow.org/>, a human-friendly 
+  Python framework for building and managing real-life data science projects. 
+  Originally developed at Netflix, Metaflow offers a unified API for data 
+  science workflows, covering the full development lifecycle of a data science project.
+  Key features include rapid prototyping, built-in versioning, horizontal and vertical scalability, 
+  dependency management, and easy integration with production-grade orchestrators. The R interface 
+  allows data scientists using R to leverage Metaflow's scalability and reproducibility while staying 
+  within their preferred ecosystem.
+URL: https://metaflow.org/,
+    https://docs.metaflow.org/v/r/,
+    https://github.com/Netflix/metaflow
+BugReports: https://github.com/Netflix/metaflow/issues
+Encoding: UTF-8
+License: Apache License (>= 2)
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Suggests: 
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
