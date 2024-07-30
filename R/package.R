@@ -14,3 +14,7 @@
 #'   import py_install virtualenv_create py_to_r r_to_py
 #' @aliases metaflow-package
 "_PACKAGE"
+
+## usethis namespace: start
+## usethis namespace: end
+NULL
