@@ -331,8 +331,9 @@ class FlowDataStore(object):
             persist=persist,
         )
 
-        # Do not cache caller-supplied metadata, which may describe a partial
-        # read (e.g. logs).
+        # Only persist in cache if it is non-changing (so done only) and we have
+        # a non-None attempt. Caller-supplied metadata skips the done check and
+        # may be partial (e.g. the empty maps used for log sizes), so never cache it.
         if (
             not cache_hit
             and data_metadata is None
