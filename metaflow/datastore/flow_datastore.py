@@ -331,10 +331,11 @@ class FlowDataStore(object):
             persist=persist,
         )
 
-        # Only persist in cache if it is non-changing (so done only) and we have
-        # a non-None attempt
+        # Do not cache caller-supplied metadata, which may describe a partial
+        # read (e.g. logs).
         if (
             not cache_hit
+            and data_metadata is None
             and self._metadata_cache is not None
             and allow_not_done is False
             and attempt is not None
